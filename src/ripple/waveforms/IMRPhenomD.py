@@ -463,7 +463,7 @@ def get_IIb_Amp(fM_s: Array, theta: Array, coeffs: Array, f_RD, f_damp) -> Array
 
 
 @jax.jit
-def Phase(f: Array, theta: Array) -> Array:
+def Phase(f: Array, theta: Array, coeffs: Array) -> Array:
     """
     Computes the phase of the PhenomD waveform following 1508.07253.
     Sets time and phase of coealence to be zero.
@@ -478,8 +478,6 @@ def Phase(f: Array, theta: Array) -> Array:
     m1_s = m1 * gt
     m2_s = m2 * gt
     M_s = m1_s + m2_s
-
-    coeffs = get_coeffs(theta)
 
     # Next we need to calculate the transition frequencies
     f1, f2, _, _, f_RD, f_damp = get_transition_frequencies(theta, coeffs[5], coeffs[6])
@@ -542,7 +540,7 @@ def Phase(f: Array, theta: Array) -> Array:
 
 
 @jax.jit
-def Amp(f: Array, theta: Array, D=1) -> Array:
+def Amp(f: Array, theta: Array, coeffs: Array, D=1) -> Array:
     """
     Computes the amplitude of the PhenomD frequency domain waveform following 1508.07253.
     Note that this waveform also assumes that object one is the more massive.
@@ -559,8 +557,6 @@ def Amp(f: Array, theta: Array, D=1) -> Array:
     m2_s = m2 * gt
     M_s = m1_s + m2_s
     eta = m1_s * m2_s / (M_s ** 2.0)
-
-    coeffs = get_coeffs(theta)
 
     _, _, f3, f4, f_RD, f_damp = get_transition_frequencies(theta, coeffs[5], coeffs[6])
 
@@ -604,7 +600,7 @@ def _gen_IMRPhenomD(
     t0 = jax.grad(get_IIb_raw_phase)(f4 * M_s, theta_intrinsic, coeffs, f_RD, f_damp)
 
     # Lets call the amplitude and phase now
-    Psi = Phase(f, theta_intrinsic)
+    Psi = Phase(f, theta_intrinsic, coeffs)
     if Psi.size > 1:
         Psi_ref = Psi[0]
         Mf_ref = f[0] * M_s
@@ -615,7 +611,7 @@ def _gen_IMRPhenomD(
     ext_phase_contrib = 2.0 * pi * f * theta_extrinsic[1] - theta_extrinsic[2]
     Psi += ext_phase_contrib
 
-    A = Amp(f, theta_intrinsic, D=theta_extrinsic[0])
+    A = Amp(f, theta_intrinsic, coeffs, D=theta_extrinsic[0])
 
     h0 = A * jnp.exp(1j * -Psi)
     return h0
