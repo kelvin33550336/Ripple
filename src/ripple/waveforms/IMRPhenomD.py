@@ -162,6 +162,102 @@ def get_inspiral_phase(fM_s: Array, theta: Array, coeffs: Array) -> Array:
     return phi_Ins
 
 
+# def get_inspiral_phase(fM_s: Array, theta: Array, coeffs: Array) -> Array:
+#     # First lets calculate some of the vairables that will be used below
+#     # Mass variables
+#     m1, m2, chi1, chi2 = theta
+#     m1_s = m1 * gt
+#     m2_s = m2 * gt
+#     M_s = m1_s + m2_s
+#     eta = m1_s * m2_s / (M_s ** 2.0)
+#     delta = (m1_s - m2_s) / M_s
+
+#     # Spin variable
+#     chi_s = (chi1 + chi2) / 2.0
+#     chi_a = (chi1 - chi2) / 2.0
+
+#     # First lets construct the phase in the inspiral (region I)
+#     phi0 = 1.0
+#     phi1 = 0.0
+#     phi2 = 3715.0 / 756.0 + 55.0 * eta / 9.0
+#     phi3 = (
+#         -16.0 * pi
+#         + 113.0 * delta * chi_a / 3.0
+#         + (113.0 / 3.0 - 76.0 * eta / 3.0) * chi_s
+#     )
+#     phi4 = (
+#         15293365.0 / 508032.0
+#         + 27145.0 * eta / 504.0
+#         + 3085.0 * (eta ** 2.0) / 72.0
+#         + (-405.0 / 8.0 + 200.0 * eta) * (chi_a ** 2.0)
+#         - 405.0 * delta * chi_a * chi_s / 4.0
+#         + (-405.0 / 8.0 + 5.0 * eta / 2.0) * (chi_s ** 2.0)
+#     )
+#     phi5 = (1.0 + jnp.log(pi * fM_s)) * (
+#         38645.0 * pi / 756.0
+#         - 64.0 * pi * eta / 9.0
+#         + delta * (-732985.0 / 2268.0 - 140.0 * eta / 9.0) * chi_a
+#         + (-732985.0 / 2268.0 + 24260.0 * eta / 81.0 + 340.0 * (eta ** 2.0) / 9.0)
+#         * chi_s
+#     )
+#     phi6 = (
+#         11583231236531.0 / 4694215680.0
+#         - 6848.0 * EulerGamma / 21.0
+#         - 640.0 * (pi ** 2.0) / 3.0
+#         + (-15737765635.0 / 3048192.0 + 2255.0 * (pi ** 2.0) / 12.0) * eta
+#         + 76055.0 * (eta ** 2.0) / 1728.0
+#         - 127825.0 * (eta ** 3.0) / 1296.0
+#         - 6848.0 * jnp.log(64.0 * pi * fM_s) / 63.0
+#         + 2270.0 * pi * delta * chi_a / 3.0
+#         + (2270.0 * pi / 3.0 - 520.0 * pi * eta) * chi_s
+#     )
+#     phi7 = (
+#         77096675.0 * pi / 254016.0
+#         + 378515.0 * pi * eta / 1512.0
+#         - 74045.0 * pi * (eta ** 2.0) / 756.0
+#         + delta
+#         * (
+#             -25150083775.0 / 3048192.0
+#             + 26804935.0 * eta / 6048.0
+#             - 1985.0 * (eta ** 2.0) / 48.0
+#         )
+#         * chi_a
+#         + (
+#             -25150083775.0 / 3048192.0
+#             + 10566655595.0 * eta / 762048.0
+#             - 1042165.0 * (eta ** 2.0) / 3024.0
+#             + 5345.0 * (eta ** 3.0) / 36.0
+#         )
+#         * chi_s
+#     )
+
+#     # Add frequency dependence here
+#     TF2_pre = 3.0 * ((pi * fM_s) ** -(5.0 / 3.0)) / (128.0 * eta)
+
+#     phi_TF2 = TF2_pre * (
+#         phi0
+#         + phi1 * ((pi * fM_s) ** (1.0 / 3.0))
+#         + phi2 * ((pi * fM_s) ** (2.0 / 3.0))
+#         + phi3 * ((pi * fM_s) ** (3.0 / 3.0))
+#         + phi4 * ((pi * fM_s) ** (4.0 / 3.0))
+#         + phi5 * ((pi * fM_s) ** (5.0 / 3.0))
+#         + phi6 * ((pi * fM_s) ** (6.0 / 3.0))
+#         + phi7 * ((pi * fM_s) ** (7.0 / 3.0))
+#     )
+
+#     phi_Ins = (
+#         phi_TF2
+#         + (
+#             coeffs[7] * fM_s
+#             + (3.0 / 4.0) * coeffs[8] * (fM_s ** (4.0 / 3.0))
+#             + (3.0 / 5.0) * coeffs[9] * (fM_s ** (5.0 / 3.0))
+#             + (1.0 / 2.0) * coeffs[10] * (fM_s ** 2.0)
+#         )
+#         / eta
+#     )
+#     return phi_Ins
+
+
 def get_IIa_raw_phase(fM_s: Array, theta: Array, coeffs: Array) -> Array:
     m1, m2, _, _ = theta
     m1_s = m1 * gt
@@ -367,7 +463,7 @@ def get_IIb_Amp(fM_s: Array, theta: Array, coeffs: Array, f_RD, f_damp) -> Array
 
 
 @jax.jit
-def Phase(f: Array, theta: Array, coeffs: Array) -> Array:
+def Phase(f: Array, theta: Array) -> Array:
     """
     Computes the phase of the PhenomD waveform following 1508.07253.
     Sets time and phase of coealence to be zero.
@@ -382,6 +478,8 @@ def Phase(f: Array, theta: Array, coeffs: Array) -> Array:
     m1_s = m1 * gt
     m2_s = m2 * gt
     M_s = m1_s + m2_s
+
+    coeffs = get_coeffs(theta)
 
     # Next we need to calculate the transition frequencies
     f1, f2, _, _, f_RD, f_damp = get_transition_frequencies(theta, coeffs[5], coeffs[6])
@@ -444,7 +542,7 @@ def Phase(f: Array, theta: Array, coeffs: Array) -> Array:
 
 
 @jax.jit
-def Amp(f: Array, theta: Array, coeffs: Array, D=1) -> Array:
+def Amp(f: Array, theta: Array, D=1) -> Array:
     """
     Computes the amplitude of the PhenomD frequency domain waveform following 1508.07253.
     Note that this waveform also assumes that object one is the more massive.
@@ -461,6 +559,8 @@ def Amp(f: Array, theta: Array, coeffs: Array, D=1) -> Array:
     m2_s = m2 * gt
     M_s = m1_s + m2_s
     eta = m1_s * m2_s / (M_s ** 2.0)
+
+    coeffs = get_coeffs(theta)
 
     _, _, f3, f4, f_RD, f_damp = get_transition_frequencies(theta, coeffs[5], coeffs[6])
 
@@ -504,7 +604,7 @@ def _gen_IMRPhenomD(
     t0 = jax.grad(get_IIb_raw_phase)(f4 * M_s, theta_intrinsic, coeffs, f_RD, f_damp)
 
     # Lets call the amplitude and phase now
-    Psi = Phase(f, theta_intrinsic)
+    Psi = Phase(f, theta_intrinsic, coeffs)
     if Psi.size > 1:
         Psi_ref = Psi[0]
         Mf_ref = f[0] * M_s
@@ -515,7 +615,7 @@ def _gen_IMRPhenomD(
     ext_phase_contrib = 2.0 * pi * f * theta_extrinsic[1] - theta_extrinsic[2]
     Psi += ext_phase_contrib
 
-    A = Amp(f, theta_intrinsic, D=theta_extrinsic[0])
+    A = Amp(f, theta_intrinsic, coeffs, D=theta_extrinsic[0])
 
     h0 = A * jnp.exp(1j * -Psi)
     return h0
@@ -525,8 +625,9 @@ def _gen_IMRPhenomD(
 def gen_IMRPhenomD(f: Array, params: Array):
     """
     Generate PhenomD frequency domain waveform following 1508.07253.
+    Note that this waveform also assumes that object one is the more massive.
     vars array contains both intrinsic and extrinsic variables
-    theta = [Mchirp, eta, chi1, chi2, D, tc, phic]
+    theta = [m1, m2, chi1, chi2, D, tc, phic]
     Mchirp: Chirp mass of the system [solar masses]
     eta: Symmetric mass ratio [between 0.0 and 0.25]
     chi1: Dimensionless aligned spin of the primary object [between -1 and 1]
@@ -554,8 +655,9 @@ def gen_IMRPhenomD(f: Array, params: Array):
 def gen_IMRPhenomD_polar(f: Array, params: Array):
     """
     Generate PhenomD frequency domain waveform following 1508.07253.
+    Note that this waveform also assumes that object one is the more massive.
     vars array contains both intrinsic and extrinsic variables
-    theta = [Mchirp, eta, chi1, chi2, D, tc, phic]
+    theta = [m1, m2, chi1, chi2, D, tc, phic]
     Mchirp: Chirp mass of the system [solar masses]
     eta: Symmetric mass ratio [between 0.0 and 0.25]
     chi1: Dimensionless aligned spin of the primary object [between -1 and 1]
@@ -565,11 +667,6 @@ def gen_IMRPhenomD_polar(f: Array, params: Array):
     phic: Phase of coalesence
     inclination: Inclination angle of the binary
     polarization_angle: Polarization angle of the binary
-
-    # FIXME: Check what happens with the polarization angle here. Does lal just set it to 0?
-    # Polarisation angle is set to a certain value, its handled by the detector projection
-    # FIXME: Probably we don't want to have t_c as a true variable here. It should be set
-    # 
 
     Returns:
     --------
