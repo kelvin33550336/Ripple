@@ -384,7 +384,7 @@ def Phase(f: Array, theta: Array, coeffs: Array) -> Array:
     M_s = m1_s + m2_s
 
     # Next we need to calculate the transition frequencies
-    f1, f2, _, _, f_RD, f_damp = get_transition_frequencies(theta, coeffs[5], coeffs[6])
+    f1, f2, f3, f4, f_RD, f_damp = get_transition_frequencies(theta, coeffs[5], coeffs[6])
 
     phi_Ins = get_inspiral_phase(f * M_s, theta, coeffs)
 
@@ -410,35 +410,46 @@ def Phase(f: Array, theta: Array, coeffs: Array) -> Array:
     beta0 = phi_Ins_f1 - beta1_correction * (f1 * M_s) - phi_IIa_f1
 
     phi_IIa_func = (
-        lambda fM_s: get_IIa_raw_phase(fM_s, theta, coeffs) + beta1_correction * fM_s
+        lambda fM_s: get_IIa_raw_phase(fM_s, theta, coeffs) + beta1_correction * fM_s + beta0
     )
-    phi_IIa = phi_IIa_func(f * M_s) + beta0
+    phi_IIa = phi_IIa_func(f * M_s)
 
     # And finally, we do the same thing to get the phase of the merger-ringdown (region IIb)
     # phi_IIb(f2*M_s) + a0 + a1_correction*(f2*M_s) = phi_IIa(f2*M_s)
     # ==> phi_IIb'(f2*M_s) + a1_correction = phi_IIa'(f2*M_s)
     # ==> a1_correction = phi_IIa'(f2*M_s) - phi_IIb'(f2*M_s)
-    # ==> a0 = phi_IIa(f2*M_s) - phi_IIb(f2*M_s) - beta1_correction*(f2*M_s)
+    # ==> a0 = phi_IIa(f2*M_s) - phi_IIb(f2*M_s) - a1_correction*(f2*M_s)
     phi_IIa_f2, dphi_IIa_f2 = jax.value_and_grad(phi_IIa_func)(f2 * M_s)
     phi_IIb_f2, dphi_IIb_f2 = jax.value_and_grad(get_IIb_raw_phase)(
         f2 * M_s, theta, coeffs, f_RD, f_damp
     )
 
     a1_correction = dphi_IIa_f2 - dphi_IIb_f2
-    a0 = phi_IIa_f2 + beta0 - a1_correction * (f2 * M_s) - phi_IIb_f2
+    a0 = phi_IIa_f2 - a1_correction * (f2 * M_s) - phi_IIb_f2
 
-    phi_IIb = (
-        get_IIb_raw_phase(f * M_s, theta, coeffs, f_RD, f_damp)
-        + a0
-        + a1_correction * (f * M_s)
+    phi_IIb_func = (
+        lambda fM_s: get_IIb_raw_phase(fM_s, theta, coeffs, f_RD, f_damp) + a1_correction * (fM_s) + a0
     )
-
+    phi_IIb = phi_IIb_func(f * M_s)
+    
     # And now we can combine them by multiplying by a set of heaviside functions
     phase = (
         phi_Ins * jnp.heaviside(f1 - f, 0.5)
         + jnp.heaviside(f - f1, 0.5) * phi_IIa * jnp.heaviside(f2 - f, 0.5)
         + phi_IIb * jnp.heaviside(f - f2, 0.5)
     )
+    
+    # Shift phase so that peak amplitude matches t = 0
+    t0 = jax.grad(phi_IIb_func)(f4 * M_s)
+    
+    # Lets call the amplitude and phase now
+    if phase.size > 1:
+        phase_ref = phase[0]
+        Mf_ref = f[0] * M_s
+    else:
+        phase_ref = phase
+        Mf_ref = f * M_s
+    phase -= phase_ref + t0 * ((f * M_s) - Mf_ref)
 
     return phase
 
@@ -495,27 +506,13 @@ def Amp(f: Array, theta: Array, coeffs: Array, D=1) -> Array:
 def _gen_IMRPhenomD(
     f: Array, theta_intrinsic: Array, theta_extrinsic: Array, coeffs: Array
 ):
-    M_s = (theta_intrinsic[0] + theta_intrinsic[1]) * gt
-
-    # Shift phase so that peak amplitude matches t = 0
-    _, _, _, f4, f_RD, f_damp = get_transition_frequencies(
-        theta_intrinsic, coeffs[5], coeffs[6]
-    )
-    t0 = jax.grad(get_IIb_raw_phase)(f4 * M_s, theta_intrinsic, coeffs, f_RD, f_damp)
 
     # Lets call the amplitude and phase now
-    Psi = Phase(f, theta_intrinsic)
-    if Psi.size > 1:
-        Psi_ref = Psi[0]
-        Mf_ref = f[0] * M_s
-    else:
-        Psi_ref = Psi
-        Mf_ref = f * M_s
-    Psi -= t0 * ((f * M_s) - Mf_ref) + Psi_ref
+    Psi = Phase(f, theta_intrinsic, coeffs)
     ext_phase_contrib = 2.0 * pi * f * theta_extrinsic[1] - theta_extrinsic[2]
     Psi += ext_phase_contrib
 
-    A = Amp(f, theta_intrinsic, D=theta_extrinsic[0])
+    A = Amp(f, theta_intrinsic, coeffs, D=theta_extrinsic[0])
 
     h0 = A * jnp.exp(1j * -Psi)
     return h0
